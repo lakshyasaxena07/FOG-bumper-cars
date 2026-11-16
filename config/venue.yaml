@@ -1,0 +1,36 @@
+venue:
+  name: "Demo Venue"
+
+recording:
+  ffmpeg_path: ffmpeg             # or 'C:\ffmpeg\bin\ffmpeg.exe' (single quotes)
+  width: 1280
+  height: 720
+  fps: 25
+  format: mp4
+  video_codec: libx264
+  encoder_args: ["-preset", "veryfast", "-crf", "23"]
+  ride_duration_seconds: null     # null = ends only on E / trigger; number = auto-end
+  max_duration_seconds: 600       # hard safety limit per ride
+  open_timeout_seconds: 10
+  disconnect_timeout_seconds: 5
+
+trigger:
+  debounce_seconds: 0.5
+
+storage:
+  sessions_dir: storage/sessions
+
+cameras:
+  # source: webcam index | webcam name | RTSP URL | video file path (dev testing)
+  - id: camera_1
+    name: "Arena Front"
+    source: 0
+    enabled: true
+  - id: camera_2
+    name: "Arena Rear"
+    source: 1
+    enabled: true
+  # - id: camera_3
+  #   name: "Entrance"
+  #   source: "rtsp://user:password@192.168.1.50:554/stream1"
+  #   enabled: true

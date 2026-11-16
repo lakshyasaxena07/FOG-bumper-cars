@@ -1,0 +1,12 @@
+recording:
+  width: 640
+  height: 480
+  fps: 25
+
+cameras:
+  - id: camera_1
+    name: "Test Video 1"
+    source: test/videos/cam1.mp4
+  - id: camera_2
+    name: "Test Video 2"
+    source: test/videos/cam2.mp4

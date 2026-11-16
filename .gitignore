@@ -1,0 +1,10 @@
+node_modules/
+.vite/
+out/
+dist/
+logs/*.log
+logs/*.json
+storage/sessions/*
+!storage/sessions/.gitkeep
+test/videos/*
+!test/videos/.gitkeep
