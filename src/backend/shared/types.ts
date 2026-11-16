@@ -10,6 +10,15 @@ export interface CameraState {
   error: string | null;
 }
 
+export type CameraReadiness = { ready: boolean; reason: string; lastFrameAt: number | null };
+
+export interface TriggerState {
+  source: 'keyboard' | 'pcb' | 'button';
+  lastKey: string | null;
+  lastAccepted: boolean | null;
+  lastReason: string | null;
+}
+
 export interface AppState {
   venue: string;
   ride: RideStatus;
@@ -17,6 +26,11 @@ export interface AppState {
   startedAt: string | null;
   cameras: CameraState[];
   lastSession: { id: string; status: string } | null;
+  readiness: Record<string, CameraReadiness>;
+  trigger: TriggerState | null;
+  rideEndsAt: number | null;   // epoch ms, set when ride starts with ride_duration_seconds
+  diskFreeGb: number | null;
+  notes: string;               // per-ride notes, empty string by default
 }
 
 export interface Notice {

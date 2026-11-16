@@ -19,6 +19,7 @@ trigger:
 
 storage:
   sessions_dir: storage/sessions
+  disk_warn_gb: 5    # warn when free disk space drops below this many GB
 
 cameras:
   # source: webcam index | webcam name | RTSP URL | video file path (dev testing)

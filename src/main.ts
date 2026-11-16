@@ -25,6 +25,21 @@ function run() {
       return;
     }
     win = createMainWindow();
+    win.on('close', (event) => {
+      if (backend?.isRecording()) {
+        const choice = dialog.showMessageBoxSync(win!, {
+          type: 'warning',
+          buttons: ['Stop & Save Ride', 'Cancel'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'Ride in Progress',
+          message: 'A ride is currently recording. Do you want to stop and save the ride before closing?',
+        });
+        if (choice === 1) {
+          event.preventDefault();
+        }
+      }
+    });
     win.on('closed', () => (win = null));
   });
 

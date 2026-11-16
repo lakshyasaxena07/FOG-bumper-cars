@@ -4,8 +4,9 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppConfig } from '../services/config';
 import { getLogger } from '../services/logger';
+import type { PreviewManager } from '../services/preview';
 import { EVENTS, type EventBus } from '../shared/events';
-import type { AppState, CameraState, RideStatus } from '../shared/types';
+import type { AppState, CameraReadiness, CameraState, RideStatus, TriggerState } from '../shared/types';
 import { CameraRecorder, describeSource, type SpawnFn } from './camera';
 
 const log = getLogger('recorder');
@@ -21,7 +22,7 @@ interface Session {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-async function writeMetadata(s: Session, status: string, reason: string | null = null) {
+async function writeMetadata(s: Session, status: string, reason: string | null = null, notes = '') {
   const end = status === 'recording' ? null : new Date();
   const meta = {
     session_id: s.id,
@@ -30,6 +31,7 @@ async function writeMetadata(s: Session, status: string, reason: string | null =
     end_time: end?.toISOString() ?? null,
     duration_seconds: end ? Number(((end.getTime() - s.startedAt.getTime()) / 1000).toFixed(2)) : null,
     stop_reason: reason,
+    notes,
     cameras: s.cameras.map((c) => c.state()),
   };
   const file = join(s.dir, 'session.json');
@@ -43,11 +45,15 @@ export class RecorderManager {
   private ride: RideStatus = 'idle';
   private lastCameras: CameraState[] | null = null;
   private lastSession: AppState['lastSession'] = null;
+  private triggerState: TriggerState | null = null;
+  private rideEndsAt: number | null = null;
+  private diskFreeGb: number | null = null;
+  private notes = '';
 
   constructor(
     private cfg: AppConfig,
     private bus: EventBus,
-    private opts: { spawnFn?: SpawnFn; fatal?: string | null } = {},
+    private opts: { spawnFn?: SpawnFn; fatal?: string | null; previewManager?: PreviewManager } = {},
   ) {
     bus.subscribe(EVENTS.RIDE_START, () => this.startRide());
     bus.subscribe(EVENTS.RIDE_END, (data) => this.endRide(data));
@@ -56,6 +62,9 @@ export class RecorderManager {
 
   getState(): AppState {
     const s = this.session;
+    const readiness: Record<string, CameraReadiness> = this.opts.previewManager
+      ? this.opts.previewManager.getReadiness()
+      : {};
     return {
       venue: this.cfg.venue.name ?? 'Venue',
       ride: this.ride,
@@ -66,7 +75,29 @@ export class RecorderManager {
         : (this.lastCameras ??
           this.cfg.cameras.map((c) => ({ id: c.id, name: c.name, status: 'idle' as const, frames: 0, file: null, error: null }))),
       lastSession: this.lastSession,
+      readiness,
+      trigger: this.triggerState,
+      rideEndsAt: this.rideEndsAt,
+      diskFreeGb: this.diskFreeGb,
+      notes: this.notes,
     };
+  }
+
+  /** Update trigger state; called by backend/index.ts when trigger fires. */
+  updateTriggerState(ts: TriggerState): void {
+    this.triggerState = ts;
+    this.notify();
+  }
+
+  /** Update disk status; called by backend/index.ts periodically. */
+  updateDiskStatus(freeGb: number): void {
+    this.diskFreeGb = freeGb;
+    this.notify();
+  }
+
+  /** Set per-ride notes. */
+  setNotes(notes: string): void {
+    this.notes = notes;
   }
 
   /** Start/end/shutdown run strictly one after another, so they can never overlap. */
@@ -118,6 +149,22 @@ export class RecorderManager {
       return;
     }
     if (this.opts.fatal) throw new Error(this.opts.fatal);
+
+    // --- readiness guard ---
+    const preview = this.opts.previewManager;
+    if (preview) {
+      const readiness = preview.getReadiness();
+      const notReady = this.cfg.cameras.filter((c) => !preview.isReady(c.id));
+      if (notReady.length > 0) {
+        const details = notReady.map((c) => `${c.name} (${readiness[c.id]?.reason ?? 'unknown'})`).join(', ');
+        const msg = `Camera(s) not ready: ${details}`;
+        log.error(msg);
+        await this.bus.publish(EVENTS.NOTICE, { level: 'error', text: msg });
+        await this.bus.publish(EVENTS.RIDE_FINISHED, { sessionId: null, status: 'failed' });
+        return;
+      }
+    }
+
     const rec = this.cfg.recording;
     const startedAt = new Date();
     const id = `${stamp(startedAt)}_${randomBytes(3).toString('hex')}`;
@@ -125,13 +172,31 @@ export class RecorderManager {
     await mkdir(this.cfg.sessionsDir, { recursive: true });
     await mkdir(dir); // fails loudly if it exists: rides never share a folder
 
+    // Reset per-ride notes
+    this.notes = '';
+
     const cameras = this.cfg.cameras.map(
       (c) => new CameraRecorder(c, rec, join(dir, `${c.id}.${rec.format}`), { spawnFn: this.opts.spawnFn, onChange: () => this.notify() }),
     );
     const session: Session = (this.session = { id, dir, cameras, startedAt, timer: null });
     this.ride = 'starting';
     this.lastCameras = null;
+
+    // Set rideEndsAt in state if duration is configured
+    const limits = [rec.ride_duration_seconds, rec.max_duration_seconds].filter((x): x is number => !!x && x > 0);
+    if (limits.length) {
+      this.rideEndsAt = Date.now() + Math.min(...limits) * 1000;
+    } else {
+      this.rideEndsAt = null;
+    }
+
     this.notify();
+
+    // Notify preview manager that cameras are now recording
+    if (preview) {
+      for (const cam of this.cfg.cameras) preview.setRecording(cam.id, true);
+    }
+
     await Promise.all(cameras.map((c) => c.start())); // all cameras connect in parallel
 
     const live = cameras.filter((c) => c.status === 'recording').map((c) => c.cam.id);
@@ -146,7 +211,6 @@ export class RecorderManager {
       await this.bus.publish(EVENTS.NOTICE, { level: 'warning', text: `Only ${live.length}/${cameras.length} cameras are recording` });
     }
 
-    const limits = [rec.ride_duration_seconds, rec.max_duration_seconds].filter((x): x is number => !!x && x > 0);
     if (limits.length) {
       // sessionId guards against ending a *later* ride by mistake
       session.timer = setTimeout(() => void this.endRide({ reason: 'time_limit', sessionId: id }), Math.min(...limits) * 1000);
@@ -164,10 +228,17 @@ export class RecorderManager {
     this.ride = 'stopping';
     this.notify();
     await Promise.all(s.cameras.map((c) => c.stop())); // all stop together
+
+    // Release preview pipes
+    const preview = this.opts.previewManager;
+    if (preview) {
+      for (const cam of this.cfg.cameras) preview.setRecording(cam.id, false);
+    }
+
     const done = s.cameras.filter((c) => c.status === 'completed').length;
     const status = done === s.cameras.length ? 'completed' : done ? 'partial' : 'failed';
     try {
-      await writeMetadata(s, status, reason);
+      await writeMetadata(s, status, reason, this.notes);
     } catch (err) {
       log.error(`Could not write session.json for ${s.id}`, err);
     }
@@ -175,6 +246,7 @@ export class RecorderManager {
     this.lastSession = { id: s.id, status };
     this.session = null;
     this.ride = 'idle';
+    this.rideEndsAt = null;
     this.notify();
     log.info(`Ride ${s.id} finished: ${status} (${reason})`);
     await this.bus.publish(EVENTS.RIDE_FINISHED, { sessionId: s.id, status });
