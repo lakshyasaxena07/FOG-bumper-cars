@@ -64,5 +64,17 @@ def execute_stage(stage: str, session_dir: Path, meta: dict[str, Any]) -> None:
         extract_session_detections(session_dir, meta, detector=detector)
         return
 
-    # Default stub behavior for Steps 15-16:
+    if stage == "segmenting":
+        from backend.app.processing.segmentation import segment_session
+
+        segment_session(session_dir, meta)
+        return
+
+    if stage == "ranking":
+        from backend.app.processing.ranking import rank_and_select_moments
+
+        rank_and_select_moments(session_dir, meta)
+        return
+
+    # Default stub behavior for Stage 4 (Reel Builder - Step 16):
     log.debug("Executing stage stub for %s in %s", stage, session_dir.name)
