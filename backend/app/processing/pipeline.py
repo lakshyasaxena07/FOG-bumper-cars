@@ -25,6 +25,12 @@ STAGE_PERCENT: dict[str, float] = {
 
 # Optional custom stage handlers (for tests and step-by-step feature plug-in)
 _STAGE_HANDLERS: dict[str, Callable[[Path, dict[str, Any]], None]] = {}
+_DETECTOR_FACTORY: Callable[[], Any] | None = None
+
+
+def set_detector_factory(factory: Callable[[], Any] | None) -> None:
+    global _DETECTOR_FACTORY
+    _DETECTOR_FACTORY = factory
 
 
 def register_stage_handler(stage: str, handler: Callable[[Path, dict[str, Any]], None]) -> None:
@@ -38,8 +44,8 @@ def unregister_stage_handler(stage: str) -> None:
 def execute_stage(stage: str, session_dir: Path, meta: dict[str, Any]) -> None:
     """Execute a single pipeline stage.
 
-    In Step 13, stubs are used if no custom handler is registered.
-    In Steps 14-16, real stage logic will be plugged in.
+    In Step 14, extraction is wired in.
+    In Steps 15-16, real stage logic will be plugged in.
     """
     fail_file = session_dir / "fail_stage.txt"
     if fail_file.is_file():
@@ -51,5 +57,12 @@ def execute_stage(stage: str, session_dir: Path, meta: dict[str, Any]) -> None:
         _STAGE_HANDLERS[stage](session_dir, meta)
         return
 
-    # Default stub behavior for Step 13:
+    if stage == "extracting":
+        from backend.app.processing.extraction import extract_session_detections
+
+        detector = _DETECTOR_FACTORY() if _DETECTOR_FACTORY else None
+        extract_session_detections(session_dir, meta, detector=detector)
+        return
+
+    # Default stub behavior for Steps 15-16:
     log.debug("Executing stage stub for %s in %s", stage, session_dir.name)
