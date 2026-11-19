@@ -16,6 +16,7 @@ from backend.app.ws.connection_manager import ConnectionManager
 
 if TYPE_CHECKING:
     from backend.app.processing.service import ProcessingService
+    from backend.app.services.share import ShareService
 
 
 @dataclass
@@ -32,4 +33,5 @@ class AppContext:
     fatal: str | None = None
     log_handler: BusLogHandler | None = None
     processing: ProcessingService | None = None
+    share: ShareService | None = None
     extra: dict[str, object] = field(default_factory=dict)

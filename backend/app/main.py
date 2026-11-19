@@ -26,6 +26,7 @@ from backend.app.recorder.camera import SpawnFn
 from backend.app.recorder.preview import PreviewManager
 from backend.app.recorder.recorder_manager import RecorderManager
 from backend.app.security import OriginGuardMiddleware
+from backend.app.services.share import ShareService
 from backend.app.services.startup import StartupService, check_disk
 from backend.app.triggers.keyboard_trigger import KeyboardTrigger
 from backend.app.ui.router import UI_DIR
@@ -99,6 +100,7 @@ def create_app(
         bus, cfg.trigger.debounce_seconds, on_trigger_state=recorder.update_trigger_state
     )
     processing = ProcessingService(cfg.sessions_dir, bus, spawn_fn=processing_spawn_fn)
+    share = ShareService(cfg.sessions_dir, bus)
     ctx = AppContext(
         cfg=cfg,
         config_path=config_path,
@@ -110,6 +112,7 @@ def create_app(
         trigger=trigger,
         ws=ws,
         processing=processing,
+        share=share,
     )
 
     # ---- EventBus -> WebSocket bridge ----
@@ -121,6 +124,8 @@ def create_app(
         lambda p: ws.broadcast("processing.progress", p),
     )
     bus.subscribe(Events.REEL_READY, lambda r: ws.broadcast("reel.ready", r))
+    bus.subscribe(Events.REEL_READY, lambda r: share.on_reel_ready(r["session_id"]))
+    bus.subscribe(Events.SHARE_CREATED, lambda s: ws.broadcast("share.created", s))
     bus.subscribe(Events.APP_QUIT, lambda _d: _quit(ws, on_quit))
 
     async def readiness_loop() -> None:

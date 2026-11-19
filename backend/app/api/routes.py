@@ -148,4 +148,33 @@ def build_router(ctx: AppContext) -> APIRouter:
             raise HTTPException(404, "No reel for this session")
         return FileResponse(reel, media_type="video/mp4")  # Starlette serves Range requests
 
+    # ---------------- share ----------------
+    @router.get("/sessions/{session_id}/share")
+    async def get_session_share(session_id: str) -> dict[str, Any]:
+        _session_path(ctx, session_id)
+        if ctx.share is None:
+            raise HTTPException(500, "Share service unavailable")
+        share_data = ctx.share.get_share(session_id)
+        if not share_data or share_data.get("revoked"):
+            raise HTTPException(404, "Session not shared")
+        return share_data
+
+    @router.post("/sessions/{session_id}/share")
+    async def create_session_share(session_id: str) -> dict[str, Any]:
+        _session_path(ctx, session_id)
+        if ctx.share is None:
+            raise HTTPException(500, "Share service unavailable")
+        try:
+            return ctx.share.create_share(session_id)
+        except ValueError as err:
+            raise HTTPException(400, str(err)) from err
+
+    @router.delete("/sessions/{session_id}/share")
+    async def revoke_session_share(session_id: str) -> dict[str, bool]:
+        _session_path(ctx, session_id)
+        if ctx.share is None:
+            raise HTTPException(500, "Share service unavailable")
+        revoked = ctx.share.revoke_share(session_id)
+        return {"revoked": revoked}
+
     return router
