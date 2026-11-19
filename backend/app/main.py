@@ -7,6 +7,7 @@ import contextlib
 import logging
 import os
 import subprocess
+import sys
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -38,7 +39,17 @@ from backend.app.ws.router import build_router as build_ws_router
 
 log = logging.getLogger("backend")
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
-APP_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def resolve_app_root() -> Path:
+    if "BUMPER_APP_ROOT" in os.environ:
+        return Path(os.environ["BUMPER_APP_ROOT"]).resolve()
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+APP_ROOT = resolve_app_root()
 
 
 def probe_ffmpeg(ffmpeg_path: str) -> str | None:
@@ -234,6 +245,10 @@ async def _quit(ws: ConnectionManager, on_quit: Callable[[], None] | None) -> No
 
 def run() -> None:
     """Entry point: serve the operator app on 127.0.0.1 only."""
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+
     import uvicorn
 
     holder: dict[str, uvicorn.Server] = {}

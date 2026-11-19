@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +20,16 @@ from backend.app.services import session_store
 from backend.app.services.desktop import open_in_file_manager
 from backend.app.services.session_store import InvalidSessionId
 
-UI_DIR = Path(__file__).resolve().parent
+
+def resolve_ui_dir() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        meipass_ui = Path(sys._MEIPASS) / "backend" / "app" / "ui"
+        if meipass_ui.exists():
+            return meipass_ui
+    return Path(__file__).resolve().parent
+
+
+UI_DIR = resolve_ui_dir()
 NAV = [
     ("console", "Console", "/"),
     ("cameras", "Cameras", "/cameras"),

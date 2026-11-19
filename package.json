@@ -12,13 +12,52 @@
   "main": "electron/dist/main.js",
   "scripts": {
     "build:electron": "tsc -p electron",
+    "build:backend": "python tools/build_backend.py",
     "typecheck": "tsc -p electron --noEmit",
     "start": "npm run build:electron && electron .",
-    "test": "npm run build:electron && node --test \"electron/test/*.test.mjs\""
+    "test": "npm run build:electron && node --test \"electron/test/*.test.mjs\"",
+    "pack": "npm run build:electron && electron-builder --dir",
+    "dist": "npm run build:electron && electron-builder"
+  },
+  "build": {
+    "appId": "com.fogtech.bumpercar",
+    "productName": "Bumper Car Moments",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "electron": "45.3.2",
+    "electron-builder": "^26.18.0",
     "typescript": "^6.0.3"
   }
 }
