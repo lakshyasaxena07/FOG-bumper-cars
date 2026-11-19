@@ -11,6 +11,8 @@ dependencies = [
     "pynput",
     "jinja2",
     "python-multipart",
+    "qrcode>=8.0",
+    "pillow",
 ]
 
 [project.optional-dependencies]

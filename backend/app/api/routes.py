@@ -7,7 +7,7 @@ import sys
 from typing import Annotated, Any
 
 import yaml
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Response
 from fastapi.responses import FileResponse
 
 from backend.app.config import ConfigError, VenueFile, save_config_text
@@ -17,6 +17,7 @@ from backend.app.core.events import Events
 from backend.app.recorder.devices import list_webcams
 from backend.app.services import session_store
 from backend.app.services.desktop import open_in_file_manager
+from backend.app.services.qr import generate_qr_png
 from backend.app.services.session_store import InvalidSessionId
 
 
@@ -176,5 +177,37 @@ def build_router(ctx: AppContext) -> APIRouter:
             raise HTTPException(500, "Share service unavailable")
         revoked = ctx.share.revoke_share(session_id)
         return {"revoked": revoked}
+
+    @router.get("/sessions/{session_id}/qr")
+    async def get_session_qr(session_id: str) -> Response:
+        _session_path(ctx, session_id)
+        if ctx.share is None:
+            raise HTTPException(500, "Share service unavailable")
+        share_data = ctx.share.get_share(session_id)
+        if not share_data or share_data.get("revoked"):
+            raise HTTPException(404, "Session not shared")
+
+        tunnel_url = ctx.tunnel.public_url if ctx.tunnel and ctx.tunnel.public_url else ""
+        if tunnel_url:
+            full_url = f"{tunnel_url.rstrip('/')}{share_data['url_path']}"
+        else:
+            full_url = f"http://127.0.0.1:{ctx.cfg.server.public_port}{share_data['url_path']}"
+
+        png_bytes = generate_qr_png(full_url)
+        return Response(content=png_bytes, media_type="image/png")
+
+    # ---------------- tunnel ----------------
+    @router.get("/tunnel/status")
+    async def get_tunnel_status() -> dict[str, Any]:
+        if ctx.tunnel is None:
+            return {"up": False, "url": None, "provider": "disabled"}
+        return ctx.tunnel.status()
+
+    @router.post("/tunnel/restart")
+    async def restart_tunnel() -> dict[str, bool]:
+        if ctx.tunnel is None:
+            raise HTTPException(400, "Tunnel service is not running")
+        await ctx.tunnel.restart()
+        return {"restarting": True}
 
     return router

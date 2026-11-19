@@ -95,7 +95,7 @@ async def test_failed_job_saves_stage_and_stderr(tmp_path):
     try:
         for _ in range(50):
             meta = read_session(sdir)
-            if meta and meta.get("processing", {}).get("status") == "failed":
+            if meta and meta.get("processing", {}).get("status") == "failed" and failed_events:
                 break
             await asyncio.sleep(0.1)
 
@@ -193,7 +193,7 @@ async def test_recording_session_cannot_be_processed(tmp_path):
 
         for _ in range(50):
             meta = read_session(sdir)
-            if meta and meta.get("processing", {}).get("status") == "failed":
+            if meta and meta.get("processing", {}).get("status") == "failed" and failed:
                 break
             await asyncio.sleep(0.1)
 

@@ -16,7 +16,9 @@ from backend.app.ws.connection_manager import ConnectionManager
 
 if TYPE_CHECKING:
     from backend.app.processing.service import ProcessingService
+    from backend.app.services.publisher import ReelPublisher
     from backend.app.services.share import ShareService
+    from backend.app.services.tunnel import TunnelManager
 
 
 @dataclass
@@ -34,4 +36,6 @@ class AppContext:
     log_handler: BusLogHandler | None = None
     processing: ProcessingService | None = None
     share: ShareService | None = None
+    tunnel: TunnelManager | None = None
+    publisher: ReelPublisher | None = None
     extra: dict[str, object] = field(default_factory=dict)

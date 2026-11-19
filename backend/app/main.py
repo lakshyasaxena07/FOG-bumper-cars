@@ -26,8 +26,10 @@ from backend.app.recorder.camera import SpawnFn
 from backend.app.recorder.preview import PreviewManager
 from backend.app.recorder.recorder_manager import RecorderManager
 from backend.app.security import OriginGuardMiddleware
+from backend.app.services.publisher import TunnelPublisher
 from backend.app.services.share import ShareService
 from backend.app.services.startup import StartupService, check_disk
+from backend.app.services.tunnel import TunnelManager
 from backend.app.triggers.keyboard_trigger import KeyboardTrigger
 from backend.app.ui.router import UI_DIR
 from backend.app.ui.router import build_router as build_ui_router
@@ -64,6 +66,8 @@ def create_app(
     check_ffmpeg: bool = True,
     start_preview: bool = True,
     start_processing: bool = True,
+    start_tunnel: bool = False,
+    tunnel_spawn_fn: Any | None = None,
     keyboard: bool = False,
     file_logging: bool = False,
     on_quit: Callable[[], None] | None = None,
@@ -101,6 +105,12 @@ def create_app(
     )
     processing = ProcessingService(cfg.sessions_dir, bus, spawn_fn=processing_spawn_fn)
     share = ShareService(cfg.sessions_dir, bus)
+    tunnel = TunnelManager(
+        bus,
+        public_port=cfg.server.public_port,
+        spawn_fn=tunnel_spawn_fn,
+    )
+    publisher = TunnelPublisher(tunnel.public_url)
     ctx = AppContext(
         cfg=cfg,
         config_path=config_path,
@@ -113,6 +123,8 @@ def create_app(
         ws=ws,
         processing=processing,
         share=share,
+        tunnel=tunnel,
+        publisher=publisher,
     )
 
     # ---- EventBus -> WebSocket bridge ----
@@ -126,6 +138,17 @@ def create_app(
     bus.subscribe(Events.REEL_READY, lambda r: ws.broadcast("reel.ready", r))
     bus.subscribe(Events.REEL_READY, lambda r: share.on_reel_ready(r["session_id"]))
     bus.subscribe(Events.SHARE_CREATED, lambda s: ws.broadcast("share.created", s))
+
+    async def _on_tunnel_up(d: dict[str, Any]) -> None:
+        publisher.set_tunnel_url(d.get("url"))
+        await ws.broadcast("tunnel.status", {"up": True, "url": d.get("url")})
+
+    async def _on_tunnel_down(_d: dict[str, Any]) -> None:
+        publisher.set_tunnel_url(None)
+        await ws.broadcast("tunnel.status", {"up": False, "url": None})
+
+    bus.subscribe(Events.TUNNEL_UP, _on_tunnel_up)
+    bus.subscribe(Events.TUNNEL_DOWN, _on_tunnel_down)
     bus.subscribe(Events.APP_QUIT, lambda _d: _quit(ws, on_quit))
 
     async def readiness_loop() -> None:
@@ -163,6 +186,8 @@ def create_app(
             preview.start()
         if start_processing:
             processing.start()
+        if start_tunnel:
+            await tunnel.start()
         if keyboard:
             trigger.start(loop)
         log.info(
@@ -175,6 +200,8 @@ def create_app(
             for t in background:
                 t.cancel()
             preview.stop()
+            if start_tunnel:
+                await tunnel.stop()
             if start_processing:
                 await processing.stop()
             await recorder.shutdown()  # stop any active ride cleanly before exiting
