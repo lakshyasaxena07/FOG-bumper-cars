@@ -21,6 +21,7 @@ from backend.app.config import load_config
 from backend.app.context import AppContext
 from backend.app.core.events import EventBus, Events
 from backend.app.core.logger import BusLogHandler, setup_file_logging
+from backend.app.processing.service import ProcessingService
 from backend.app.recorder.camera import SpawnFn
 from backend.app.recorder.preview import PreviewManager
 from backend.app.recorder.recorder_manager import RecorderManager
@@ -58,8 +59,10 @@ def create_app(
     data_root: Path | None = None,
     spawn_fn: SpawnFn | None = None,
     preview_spawn_fn: SpawnFn | None = None,
+    processing_spawn_fn: Any | None = None,
     check_ffmpeg: bool = True,
     start_preview: bool = True,
+    start_processing: bool = True,
     keyboard: bool = False,
     file_logging: bool = False,
     on_quit: Callable[[], None] | None = None,
@@ -95,6 +98,7 @@ def create_app(
     trigger = KeyboardTrigger(
         bus, cfg.trigger.debounce_seconds, on_trigger_state=recorder.update_trigger_state
     )
+    processing = ProcessingService(cfg.sessions_dir, bus, spawn_fn=processing_spawn_fn)
     ctx = AppContext(
         cfg=cfg,
         config_path=config_path,
@@ -105,12 +109,18 @@ def create_app(
         preview=preview,
         trigger=trigger,
         ws=ws,
+        processing=processing,
     )
 
     # ---- EventBus -> WebSocket bridge ----
     bus.subscribe(Events.STATE_CHANGED, lambda s: ws.broadcast("state", s))
     bus.subscribe(Events.APP_NOTICE, lambda n: ws.broadcast("notice", n))
     bus.subscribe(Events.LOG_ENTRY, lambda e: ws.broadcast("log", e, logs_only=True))
+    bus.subscribe(
+        Events.PROCESSING_PROGRESS,
+        lambda p: ws.broadcast("processing.progress", p),
+    )
+    bus.subscribe(Events.REEL_READY, lambda r: ws.broadcast("reel.ready", r))
     bus.subscribe(Events.APP_QUIT, lambda _d: _quit(ws, on_quit))
 
     async def readiness_loop() -> None:
@@ -146,6 +156,8 @@ def create_app(
         background = [asyncio.create_task(readiness_loop()), asyncio.create_task(disk_loop())]
         if start_preview and not ctx.fatal:
             preview.start()
+        if start_processing:
+            processing.start()
         if keyboard:
             trigger.start(loop)
         log.info(
@@ -158,6 +170,8 @@ def create_app(
             for t in background:
                 t.cancel()
             preview.stop()
+            if start_processing:
+                await processing.stop()
             await recorder.shutdown()  # stop any active ride cleanly before exiting
             for t in [*background, *tasks]:
                 with contextlib.suppress(asyncio.CancelledError, Exception):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from backend.app.config import AppConfig
 from backend.app.core.events import EventBus
@@ -12,6 +13,9 @@ from backend.app.recorder.preview import PreviewManager
 from backend.app.recorder.recorder_manager import RecorderManager
 from backend.app.triggers.keyboard_trigger import KeyboardTrigger
 from backend.app.ws.connection_manager import ConnectionManager
+
+if TYPE_CHECKING:
+    from backend.app.processing.service import ProcessingService
 
 
 @dataclass
@@ -27,4 +31,5 @@ class AppContext:
     ws: ConnectionManager
     fatal: str | None = None
     log_handler: BusLogHandler | None = None
+    processing: ProcessingService | None = None
     extra: dict[str, object] = field(default_factory=dict)

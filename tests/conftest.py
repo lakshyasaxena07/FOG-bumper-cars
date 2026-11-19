@@ -49,6 +49,7 @@ def operator_app(tmp_path, venue_path, quits):
         spawn_fn=Spawner(),
         check_ffmpeg=False,
         start_preview=False,
+        start_processing=False,
         on_quit=lambda: quits.append(True),
         camera_opts={"stop_timeout": 0.3, "poll_interval": 0.05},
     )
