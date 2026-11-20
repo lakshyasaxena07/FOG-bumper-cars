@@ -76,10 +76,5 @@ def execute_stage(stage: str, session_dir: Path, meta: dict[str, Any]) -> None:
         rank_and_select_moments(session_dir, meta)
         return
 
-    if stage == "building":
-        from backend.app.reel.builder import build_reel
-
-        build_reel(session_dir, meta)
-        return
-
-    log.debug("Unknown stage %s in %s", stage, session_dir.name)
+    # Default stub behavior for Stage 4 (Reel Builder - Step 16):
+    log.debug("Executing stage stub for %s in %s", stage, session_dir.name)
