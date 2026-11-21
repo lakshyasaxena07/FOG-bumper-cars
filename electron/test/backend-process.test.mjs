@@ -26,6 +26,24 @@ test("resolveBackendCommand: dev uses python -m, packaged uses bundled exe", () 
   assert.deepEqual(prod.args, []);
 });
 
+test("resolveBackendCommand: auto-detects .venv in repoRoot if present", () => {
+  // Point to current repo root which has .venv
+  const detected = resolveBackendCommand({ isPackaged: false, resourcesPath: "R", repoRoot: process.cwd(), env: {} });
+  if (process.platform === "win32") {
+    assert.match(detected.command.replaceAll("\\", "/"), /\.venv\/Scripts\/python\.exe$/);
+  } else {
+    assert.match(detected.command, /\.venv\/bin\/python$/);
+  }
+  // Explicit BUMPER_PYTHON still takes precedence over .venv
+  const overridden = resolveBackendCommand({
+    isPackaged: false,
+    resourcesPath: "R",
+    repoRoot: process.cwd(),
+    env: { BUMPER_PYTHON: "explicit_python" },
+  });
+  assert.equal(overridden.command, "explicit_python");
+});
+
 test("waitForHealth resolves once the backend reports ok", async () => {
   let calls = 0;
   const { s, port } = await server((req, res) => {

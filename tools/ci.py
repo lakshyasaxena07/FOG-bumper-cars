@@ -17,19 +17,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-CHECKS: list[tuple[str, list[str]]] = [
-    ("Ruff Lint", ["ruff", "check", "."]),
-    ("Ruff Format", ["ruff", "format", "--check", "backend", "tests", "tools"]),
-    ("Pytest Suite", [sys.executable, "-m", "pytest"]),
-    ("TypeScript Codegen Check", [sys.executable, "tools/build_ts.py", "--check"]),
-    ("TypeScript Typecheck", ["npm.cmd" if sys.platform == "win32" else "npm", "run", "typecheck"]),
-    ("Electron Tests", ["npm.cmd" if sys.platform == "win32" else "npm", "test"]),
-]
+
+def find_python() -> str:
+    venv_py_win = ROOT / ".venv" / "Scripts" / "python.exe"
+    venv_py_unix = ROOT / ".venv" / "bin" / "python"
+    if venv_py_win.exists():
+        return str(venv_py_win)
+    if venv_py_unix.exists():
+        return str(venv_py_unix)
+    return sys.executable
 
 
 def run_checks() -> int:
+    py = find_python()
+    npm = "npm.cmd" if sys.platform == "win32" else "npm"
+    checks: list[tuple[str, list[str]]] = [
+        ("Ruff Lint", [py, "-m", "ruff", "check", "."]),
+        ("Ruff Format", [py, "-m", "ruff", "format", "--check", "backend", "tests", "tools"]),
+        ("Pytest Suite", [py, "-m", "pytest"]),
+        ("TypeScript Codegen Check", [py, "tools/build_ts.py", "--check"]),
+        ("TypeScript Typecheck", [npm, "run", "typecheck"]),
+        ("Electron Tests", [npm, "test"]),
+    ]
     failed = []
-    for name, cmd in CHECKS:
+    for name, cmd in checks:
         print(f"\n{'=' * 20} Running: {name} {'=' * 20}")
         print(f"Command: {' '.join(cmd)}")
         res = subprocess.run(cmd, cwd=str(ROOT))

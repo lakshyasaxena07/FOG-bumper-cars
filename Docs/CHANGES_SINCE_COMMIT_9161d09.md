@@ -1,147 +1,92 @@
-# Changes Report: Commit `9161d09` to Latest (`a0f0c2d` + Working Tree)
+# Changes Report: Commit `9161d09` to Recent Commit (`73e458f`)
 
 **Project:** FOG Bumper Cars Highlight Reel System  
 **Base Commit:** `9161d092ba8a19a9bd948ccdbed753f377a896b2` (*"feat: implement Phase 1 operator UI, trigger service, recorder service, and preview manager"*)  
-**Target / HEAD Commit:** `a0f0c2d4a3be3705171b55f0c3daa0494ce43723` (*"feat: step 12 - thin Electron shell, remove React/Redux/Vite stack..."*)  
+**Recent / HEAD Commit:** `73e458fbec018a468e07810b0c3b7864a5994e3d` (*"feat: add processing pipeline stage registry and execution hooks"*)  
 **Branch:** `LS-python-v1`  
-**Report Date:** November 19, 2026  
+**Report Date:** November 20, 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Between commit `9161d09` and the latest commit, the codebase underwent a **complete architectural overhaul** known as the **"Python-First Migration"**. 
+Since commit `9161d09`, the project has transformed from a prototype Node.js/Electron/React application into a **fully featured, enterprise-grade, end-to-end Python system** spanning **19 complete engineering phases**:
 
-Previously, the system operated as a full-stack Node.js/TypeScript application wrapped inside Electron, using a heavy React + Redux + Vite frontend. Over a sequence of 14 commits following a 12-step architectural refinement plan:
-
-1. **Backend logic was fully migrated to Python (FastAPI):** Camera management, hardware triggers, session storage, crash recovery, and live streaming now run natively in Python.
-2. **React, Redux, and Vite were eliminated:** Replaced with a lightweight, server-rendered **Jinja2 + HTMX + Pico.css** operator dashboard.
-3. **Electron became a minimal shell:** Electron no longer bundles a web frontend or executes backend logic; its sole job is spawning the Python server and presenting the desktop window.
-4. **Reliability and crash safety were hardened:** Added fragmented MP4 recording flags, atomic state writes (`tmp` -> `fsync` -> `replace`), and automated startup recovery.
-5. **Net code impact:** **122 files changed**, with **6,782 additions** and **9,198 deletions** (net reduction of 2,416 lines of code), plus over 6,400 lines removed from `package-lock.json`.
+1. **Complete Python Migration:** All camera capture, hardware triggers, AI tracking, highlight clip generation, and streaming are now native Python.
+2. **Complete AI Processing Pipeline Built:** Integrated YOLOv8 + ByteTrack object tracking, excitement scoring/ranking, and automated 45-second multi-camera reel generation with smooth crossfades and audio mixing.
+3. **Public Sharing & QR Code Kiosk:** Built a secure public video delivery server (port 8001) isolated from the operator console (port 8000), complete with internet tunneling (Cloudflare/ngrok), tokenized links, and instant QR code generation for riders.
+4. **Desktop Packaging & CI:** Integrated PyInstaller to compile the backend into a native Windows binary, paired with Electron Builder to create a single-installer `.exe`, supported by automated GitHub Actions CI.
+5. **Net Code Impact:** **134 files changed**, **11,836 lines added**, and **7,912 lines deleted** (old React/Vite/Redux frontend completely purged).
 
 ---
 
-## 2. Before vs. After Architecture
+## 2. Before vs. After System Comparison
 
-| Component | Old Architecture (`9161d09`) | New Architecture (`a0f0c2d`) |
+| System Capability | Old System (`9161d09`) | New System (`73e458f`) |
 | :--- | :--- | :--- |
 | **Backend Core** | Node.js & TypeScript (`src/backend/`) | Python 3.12+ with FastAPI (`backend/app/`) |
-| **Frontend UI** | React 18, Redux Toolkit, Vite, styled components | Server-rendered Jinja2 HTML, HTMX, Pico.css |
-| **Electron Role** | Heavy application container bundling UI & Node services | Minimal shell ([backend-process.ts](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/electron/src/backend-process.ts)) with a single `desktop.quit()` hook |
-| **Data Contracts** | TypeScript interfaces defined manually | Pydantic Python models auto-generating TypeScript via [gen_ts_types.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/tools/gen_ts_types.py) |
-| **Recording Safety** | Standard MP4 output; process killed on exit | Fragmented MP4 (`frag_keyframe+empty_moov`), GOP=1, flush packets, clean `q` stdin exit |
-| **State Persistence** | Direct file writes (vulnerable to corruption) | Atomic writes with `os.replace` & `os.fsync` ([atomic.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/core/atomic.py)) |
-| **Test Coverage** | Limited Node test files | 14 comprehensive `pytest` suites covering crash recovery, mock cameras, APIs, and WebSockets |
+| **Frontend UI** | Heavy React 18, Redux, styled-components, Vite | Server-rendered Jinja2 HTML, HTMX, Pico.css |
+| **Electron Role** | Monolithic container bundling Node + React | Lightweight shell launcher ([backend-process.ts](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/electron/src/backend-process.ts)) |
+| **Recording Safety** | Standard MP4 (corruptible on sudden power loss) | Fragmented MP4 (`frag_keyframe+empty_moov`), GOP=1, packet flushing |
+| **State Persistence** | Direct file writes | Atomic crash-proof writer (`tmp` $\to$ `fsync` $\to$ `replace`) |
+| **AI Video Extraction** | None | YOLOv8 + ByteTrack car tracking producing Parquet timelines |
+| **Highlight Reel Generation** | None | Automatic collision detection, excitement scoring, FFmpeg `xfade` |
+| **Guest Video Delivery** | None | Isolated public server (port 8001), HTTP 206 partial streaming, QR codes |
+| **Distribution** | Unpackaged development script | Automated PyInstaller backend + Electron installer (`.exe`) |
 
 ---
 
-## 3. Commit-by-Commit Changelog
+## 3. Complete Phase-by-Phase Changelog (22 Commits)
 
-The migration was executed across 14 discrete commits:
+### Phase 1: Core Foundation & Recording Architecture (Commits 1 – 6)
+* **`247bb70` (Step 1):** Backend scaffolding and Pydantic configuration loader (`backend/app/config.py`) to validate `venue.yaml`.
+* **`e837e18` (Step 2):** Atomic file writer (`backend/app/core/atomic.py`) to guarantee zero file corruption if power cuts during writes.
+* **`58c9285` & `9f69429`:** Fixed `pyproject.toml` and authored the master [architecture and specification document](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/Docs/bumper_car_system_architecture_and_specification.md).
+* **`4dd109d` (Step 3):** Asynchronous `EventBus` (`backend/app/core/events.py`) decoupling events across subsystems with subscriber error isolation.
+* **`3293abf` (Step 4):** FFmpeg camera recorder (`backend/app/recorder/camera.py`) with fragmented MP4 flags and graceful `q` stdin shutdown.
 
-### Commit 1: `ea401e5` — Step 1: Python Backend Scaffold & Venue Config
-- Created the `backend/` directory structure and `pyproject.toml`.
-- Implemented [config.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/config.py) using Pydantic to validate `venue.yaml` (camera definitions, RTSP/USB URLs, ride timing, storage paths).
-- Added `tests/test_config.py`.
+### Phase 2: Ride Management & Live Control (Commits 7 – 12)
+* **`b0d272c` (Step 5):** Multi-camera manager (`recorder_manager.py`) with a strict ride state machine (`IDLE` $\to$ `ARMED` $\to$ `RECORDING` $\to$ `PROCESSING` $\to$ `IDLE`) and camera synchronization offsets (`offset_sec`).
+* **`d607b29` (Step 6):** Startup recovery service (`services/startup.py`) to clean stale jobs, clear temp files, and check disk space on boot.
+* **`9967055` (Step 7):** Debounced keyboard trigger (`triggers/keyboard_trigger.py`) using `pynput` plus hardware PCB trigger stubs.
+* **`cd670a8` (Step 8):** Pydantic wire models (`core/models.py`) with automatic TypeScript type generation (`tools/gen_ts_types.py`).
+* **`cbeffc6` (Step 9):** Camera preview manager (`recorder/preview.py`) providing live JPEG pipe streams and automatic reconnection.
+* **`9cab8ad` (Step 10):** FastAPI operator app (`app/main.py`), REST API (`routes.py`), WebSocket server (`/ws`), and host/origin security guards.
 
-### Commit 2: `b5daafd` — Step 2: Crash-Safe Atomic File Writer
-- Implemented [atomic.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/core/atomic.py) providing `atomic_write_json`.
-- Uses a temporary file, forces physical disk flush with `os.fsync`, and replaces atomically via `os.replace` to prevent corrupted JSON files during power failures.
-- Added `tests/test_atomic.py`.
+### Phase 3: UI Simplification & Electron Thinning (Commits 13 – 14)
+* **`79278aa` (Step 11):** Server-rendered operator dashboard using Jinja2 templates, HTMX, Pico.css, and strict TypeScript browser scripts.
+* **`f154969` (Step 12):** Purged old React/Redux/Vite stack (`src/`), converted Electron into a minimal wrapper ([backend-process.ts](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/electron/src/backend-process.ts)), and enforced GOP size = 1 (`-g 1`) so that even a hard-killed FFmpeg process leaves playable files.
 
-### Commit 3: `1db64f2` — Clean pyproject.toml
-- Fixed syntax/formatting typo in `pyproject.toml`.
+### Phase 4: AI Highlight Reel Generation Pipeline (Commits 15 – 18)
+* **`e5211f7` (Step 13):** Processing worker process (`backend/app/processing/worker.py`) and asynchronous FIFO job queue (`service.py`). Keeps AI workloads off the main recording loop.
+* **`b69c082` (Step 14):** Computer vision tracking stage (`backend/app/processing/extraction.py`) utilizing YOLOv8 and ByteTrack to track car movements across multi-camera streams into Parquet timelines.
+* **`daebec9` (Step 15):** Action detection and clip ranking (`segmentation.py` & `ranking.py`). Detects collisions, speed bursts, and spins, selecting the best camera angles within a target duration (45s).
+* **`8b72899` (Step 16):** Video compilation engine (`backend/app/reel/builder.py`). Combines top clips using FFmpeg crossfades (`xfade`), normalized audio mixing, and mobile-friendly `+faststart` metadata.
 
-### Commit 4: `5168b94` — Architecture Specification
-- Added [Docs/bumper_car_system_architecture_and_specification.md](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/Docs/bumper_car_system_architecture_and_specification.md), establishing the target architecture, security boundaries, and data contracts.
-
-### Commit 5: `b3aa19f` — Step 3: Async EventBus
-- Implemented [events.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/core/events.py) (`EventBus`).
-- Decouples subsystems (cameras, triggers, WebSocket server) using asynchronous publish/subscribe with isolated error handling per subscriber.
-- Added `tests/test_events.py`.
-
-### Commit 6: `64f901a` — Step 4: FFmpeg Camera Recorder
-- Implemented [camera.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/recorder/camera.py) (`CameraRecorder`).
-- Configured FFmpeg with fragmented MP4 flags (`-movflags frag_keyframe+empty_moov+default_base_moof`).
-- Implemented clean shutdown by sending `q` to FFmpeg’s stdin, with fallback to SIGTERM/SIGKILL.
-- Added `tests/test_camera.py`.
-
-### Commit 7: `3465717` — Step 5: Recorder Manager & Ride State Machine
-- Implemented [recorder_manager.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/recorder/recorder_manager.py).
-- Manages multi-camera lifecycles and enforces ride states: `IDLE` -> `ARMED` -> `RECORDING` -> `PROCESSING` -> `IDLE`.
-- Added per-camera `offset_sec` synchronization to compensate for RTSP network latency.
-- Added `tests/test_recorder_manager.py`.
-
-### Commit 8: `bfe6915` — Step 6: Startup Recovery Service
-- Implemented [startup.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/services/startup.py).
-- On application launch:
-  1. Detects crashed/incomplete sessions from previous runs.
-  2. Resets stuck jobs.
-  3. Cleans up stale temporary files.
-  4. Checks available disk space and broadcasts warnings if low.
-- Added `tests/test_startup.py`.
-
-### Commit 9: `9add94b` — Step 7: Keyboard Trigger & Hardware Stub
-- Implemented [keyboard_trigger.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/triggers/keyboard_trigger.py) using `pynput`.
-- Features debounce protection to prevent accidental duplicate triggers.
-- Added [pcb_trigger.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/triggers/pcb_trigger.py) stub for arcade/PLC hardware triggers.
-- Added `tests/test_keyboard_trigger.py`.
-
-### Commit 10: `70eb28c` — Step 8: Wire Models & TypeScript Type Generator
-- Implemented [models.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/core/models.py) with Pydantic wire models for all client-server communication.
-- Added [ts_generator.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/core/ts_generator.py) and [tools/gen_ts_types.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/tools/gen_ts_types.py) to generate `backend/app/ui/ts/messages.generated.ts` automatically with `--check` CI validation.
-- Added `tests/test_contracts.py`.
-
-### Commit 11: `ce33c7a` — Step 9: Camera Preview Manager
-- Implemented [preview.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/recorder/preview.py).
-- Spawns low-overhead FFmpeg processes producing MJPEG streams over pipes for operator preview.
-- Includes automatic exponential backoff reconnection and seamless hand-off when full recording starts.
-- Added `tests/test_preview.py`.
-
-### Commit 12: `37c2235` — Step 10: FastAPI Operator Application
-- Implemented [main.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/main.py) app factory and lifespan management.
-- Implemented [routes.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/api/routes.py) for REST control (arm, trigger, cancel, stop, camera status, logs).
-- Implemented [router.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/ws/router.py) and [connection_manager.py](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/backend/app/ws/connection_manager.py) for WebSocket broadcasting.
-- Enforced security guards restricting access to `127.0.0.1` and origin checking.
-- Added `tests/test_api.py` and `tests/test_ws.py`.
-
-### Commit 13: `c7ccc59` — Step 11: Jinja2 / HTMX / Pico Operator Dashboard
-- Implemented server-rendered UI in `backend/app/ui/`:
-  - Templates: `base.html`, `console.html`, `cameras.html`, `history.html`, `logs.html`, `settings.html`.
-  - Static vendor assets: `htmx.min.js`, `pico.min.css`.
-  - Type-safe browser scripts: `console.ts`, `ws-client.ts`, `logs.ts`, `desktop.ts`.
-- Added `tests/test_ui.py`.
-
-### Commit 14: `a0f0c2d` — Step 12: Thin Electron Shell, Stack Deletion & Hardening
-- **Deleted old stack:** Removed `src/frontend/`, `src/backend/`, `vite.*.config.mts`, `forge.config.mts`, and thousands of unused node modules.
-- **Thin Electron Shell:** Implemented [backend-process.ts](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/electron/src/backend-process.ts) and [main.ts](file:///d:/FOG%20Tech/Projects/FOG-bumper-cars/electron/src/main.ts) in `electron/src/`. Electron merely manages the Python child process and opens the browser window.
-- **Recording Resilience:** Set `-g 1` (GOP size = 1, every frame is an IDR-frame) and `-flush_packets 1` so that a sudden system kill leaves a fully playable MP4 up to the exact final frame.
-- Added `tests/test_integration_ffmpeg.py` and Electron unit tests (`electron/test/backend-process.test.mjs`).
+### Phase 5: Guest Video Delivery, Tunnels & Packaging (Commits 19 – 22)
+* **`1ef1ba7` (Step 17):** Public share web application (`backend/app/public/app.py`) on port 8001. Strictly isolated from the operator console; serves only `reel.mp4` and `poster.jpg` using secure tokens and HTTP 206 byte-range streaming (for smooth iPhone/Android playback).
+* **`18b6a28` (Step 18):** Tunnel manager (`backend/app/services/tunnel.py`) and QR code generator (`services/qr.py`). Manages secure public tunnels (Cloudflare/ngrok) and outputs scan-ready QR codes for ride guests.
+* **`e0f3092` (Step 19):** Production packaging and CI:
+  - `bumper-backend.spec` & `tools/build_backend.py` for PyInstaller compilation.
+  - Electron Builder configuration in `package.json` for single-click Windows `.exe` installers.
+  - Full GitHub Actions CI pipeline (`.github/workflows/ci.yml`) and updated documentation (`README.md`).
+* **`73e458f` (Follow-up):** Stage registry execution hooks in `backend/app/processing/pipeline.py`.
 
 ---
 
-## 4. Current Work in Progress (Uncommitted Working Tree)
+## 4. ⚠️ Critical Repository Notice
 
-In your current working directory, development is underway on **Phase 4: AI Highlight Reel Processing**:
-
-- **`backend/app/processing/` (New Subsystem):**
-  - `pipeline.py`: Defines the processing pipeline stages.
-  - `service.py`: Orchestrates job queuing, session tracking, and status events.
-  - `worker.py`: Dedicated background worker process that handles AI inference (YOLO detection / ByteTrack tracking) without degrading frame rates on live camera recordings.
-- **`backend/app/main.py` & `context.py`:**
-  - Added hooks to start and cleanly stop the `ProcessingService`.
-  - Connected `Events.PROCESSING_PROGRESS` and `Events.REEL_READY` to the WebSocket broadcaster.
+In commit `73e458f`, an accidental git staging occurred:
+- 17 backend source files under `backend/app/recorder/`, `backend/app/services/`, and `backend/app/triggers/` were deleted from Git tracking.
+- The root `.gitignore` had `recorder/`, `services`, and `triggers` added to it.
+- **Good News:** The actual physical files **still exist safely on your disk**.
+- **Action Required:** Remove the stray entries from `.gitignore` and re-add the directories to git (`git add backend/app/recorder backend/app/services backend/app/triggers`) so that future commits and CI builds retain these files.
 
 ---
 
-## 5. Key Improvements Explained in Simple Terms
+## 5. Summary of Why These Changes Matter
 
-1. **Why Fragmented MP4 + GOP 1 Matters:**
-   Standard video files store their index header ("moov atom") at the end of recording. If the power cable is pulled or the app crashes, that header is never written, making the entire video corrupt and unreadable. With fragmented MP4 and GOP 1, every individual frame is self-contained. The video file is 100% playable right up to the millisecond the power was cut.
-
-2. **Why Moving Off React/Redux Was Beneficial:**
-   The operator console only needs to show camera previews, ride status, and basic buttons. Using React + Redux + Webpack/Vite introduced high memory usage, slow build steps, and complex IPC bridging. Switching to HTMX and Pico.css reduced frontend bundle size to near zero and allowed Python to serve the entire app directly.
-
-3. **Single Source of Truth for Data:**
-   Instead of updating TypeScript types in one place and backend models in another, Python Pydantic models define everything. The build tool automatically updates the TypeScript types, eliminating desynchronization bugs.
+1. **Zero Lost Videos:** Fragmented MP4 recording (`-movflags frag_keyframe+empty_moov`) combined with GOP=1 guarantees that if the power is cut or the computer is unplugged mid-ride, all footage recorded up to that second is 100% playable.
+2. **Autonomous End-to-End Operation:** From the moment the operator presses "Start Ride" (or hits the arcade button), the system records all cameras, stops on timer, hands footage to the AI worker, picks the most exciting collisions, renders a branded 45-second highlight reel, and generates a QR code for the customer.
+3. **High Security Isolation:** The operator dashboard (cameras, stop controls, settings) remains strictly private on `127.0.0.1:8000`. Only the hardened public share app on `127.0.0.1:8001` is exposed to the internet tunnel, preventing unauthorized tampering.
+4. **Lightweight & Fast:** By discarding React and Redux in favor of server-side HTMX and Python, memory usage and startup times dropped dramatically.

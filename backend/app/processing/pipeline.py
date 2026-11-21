@@ -13,6 +13,11 @@ from typing import Any
 
 log = logging.getLogger("processing.pipeline")
 
+
+# GTA 6 TEST VIDEO
+# https://youtu.be/ftOAikxrZl8?si=f76jH0BihcTUPr9c
+
+
 STAGES: tuple[str, ...] = ("extracting", "segmenting", "ranking", "building")
 
 STAGE_PERCENT: dict[str, float] = {

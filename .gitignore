@@ -18,3 +18,5 @@ __pycache__/
 backend/app/ui/static/js/
 electron/dist/
 .vite/
+ai-learning-companion-v1/
+models/

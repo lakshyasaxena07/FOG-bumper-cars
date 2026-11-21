@@ -13,6 +13,10 @@ dependencies = [
     "python-multipart",
     "qrcode>=8.0",
     "pillow",
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "opencv-python-headless",
 ]
 
 [project.optional-dependencies]
