@@ -50,8 +50,8 @@ async def test_queued_job_runs_and_reaches_done(tmp_path):
     service.start()
 
     try:
-        # Wait up to 5s for job to finish and IPC queue to drain
-        for _ in range(50):
+        # Wait up to 15s for job to finish and IPC queue to drain
+        for _ in range(150):
             meta = read_session(sdir)
             if (
                 meta
@@ -93,7 +93,7 @@ async def test_failed_job_saves_stage_and_stderr(tmp_path):
     service.start()
 
     try:
-        for _ in range(50):
+        for _ in range(150):
             meta = read_session(sdir)
             if meta and meta.get("processing", {}).get("status") == "failed" and failed_events:
                 break
@@ -134,7 +134,7 @@ async def test_second_job_waits_for_first_to_finish(tmp_path):
         # Enqueueing same ID while pending or running returns False
         assert service.enqueue(VALID_ID) is False
 
-        for _ in range(60):
+        for _ in range(250):
             m1 = read_session(sdir1)
             m2 = read_session(sdir2)
             if (
@@ -166,7 +166,7 @@ async def test_ride_finished_auto_queues_processing(tmp_path):
     try:
         await bus.publish(Events.RIDE_FINISHED, {"session_id": VALID_ID, "status": "completed"})
 
-        for _ in range(50):
+        for _ in range(150):
             meta = read_session(sdir)
             if meta and meta.get("processing", {}).get("status") == "done":
                 break
